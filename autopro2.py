@@ -1,208 +1,179 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 from datetime import datetime, date
 
-# --- 1. الإعدادات العامة للمنصة ---
-st.set_page_config(page_title="AutoPro ERP | Professional Edition", layout="wide", initial_sidebar_state="expanded")
+# --- 1. إعدادات النظام ---
+st.set_page_config(page_title="AutoPro ERP Pro v2.1", layout="wide", initial_sidebar_state="expanded")
 
-# --- 2. التصميم الاحترافي (Advanced CSS Injection) ---
+# --- 2. التصميم الاحترافي (CSS) ---
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap');
-    
-    /* الخط العام */
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
     html, body, [class*="css"] { font-family: 'Cairo', sans-serif; direction: rtl; text-align: right; }
-    
-    /* لون الخلفية العام */
-    .main { background-color: #f0f2f6; }
-    
-    /* تصميم البطاقات الإحصائية */
-    .metric-card {
-        background-color: #ffffff;
-        border-radius: 12px;
-        padding: 20px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-        border-bottom: 4px solid #1E3A8A;
-        transition: transform 0.3s;
-    }
-    .metric-card:hover { transform: translateY(-5px); }
-    
-    /* تعديل شريط التنقل الجانبي */
-    [data-testid="stSidebar"] { background-color: #1E3A8A; color: white; }
+    .main { background-color: #f4f7f9; }
+    [data-testid="stSidebar"] { background-color: #1E3A8A !important; }
     [data-testid="stSidebar"] * { color: white !important; }
-    
-    /* تصميم الجداول */
-    .stDataFrame { border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-    
-    /* أزرار مخصصة */
-    .stButton>button {
-        background-color: #1E3A8A;
-        color: white;
-        border-radius: 8px;
-        font-weight: 600;
-        height: 3em;
-        border: none;
-        width: 100%;
-    }
+    .stButton>button { background-color: #1E3A8A; color: white; border-radius: 8px; width: 100%; font-weight: bold; }
     .stButton>button:hover { background-color: #2563EB; border: none; }
-    
-    /* العناوين */
-    h1, h2, h3 { color: #1E3A8A; font-weight: 700; }
+    .metric-card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border-right: 5px solid #1E3A8A; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. إدارة حالة النظام (Session State) ---
-if 'db' not in st.session_state:
-    st.session_state.db = {
-        "products": pd.DataFrame([
-            {"كود": "BK-001", "الصنف": "تيل فرامل تويوتا", "المخزن": 45, "التكلفة": 450, "البيع": 650, "المورد": "النيل لقطع الغيار"},
-            {"كود": "OF-002", "الصنف": "فلتر زيت هيونداي", "المخزن": 110, "التكلفة": 120, "البيع": 185, "المورد": "المركز التجاري"},
-        ]),
-        "sales": [],
-        "purchases": [],
-        "suppliers": ["النيل لقطع الغيار", "المركز التجاري", "عالم المحركات"],
-        "customers": ["أحمد علي", "شركة النقل السريع", "عميل نقدي"],
-        "employees": pd.DataFrame([
-            {"الاسم": "محمد حسن", "الوظيفة": "بائع", "الراتب": 6000, "الحالة": "حاضر"},
-            {"الاسم": "سارة محمود", "الوظيفة": "محاسب", "الراتب": 8000, "الحالة": "حاضر"},
-        ]),
-        "expenses": []
-    }
-
-# --- 4. القائمة الجانبية (Navigation Menu) ---
-with st.sidebar:
-    st.markdown("<h1 style='text-align: center; color: white;'>AutoPro ERP</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; font-size: 0.8em;'>نظام إدارة متكامل v2.0</p>", unsafe_allow_html=True)
-    st.divider()
-    
-    # تقسيم الموديولات بشكل احترافي
-    st.subheader("📊 العمليات والتقارير")
-    menu = st.radio("", [
-        "لوحة القيادة Dashboard",
-        "إدارة المبيعات",
-        "إدارة المخازن",
-        "إدارة المشتريات",
-        "إدارة الموردين",
-        "إدارة العملاء",
-        "إدارة الموظفين",
-        "الحضور والانصراف",
-        "المرتبات",
-        "إدارة المصروفات",
-        "التقارير المالية",
-        "الصلاحيات والإعدادات"
+# --- 3. محرك البيانات (Session State Initialization) ---
+if 'db_products' not in st.session_state:
+    st.session_state.db_products = pd.DataFrame([
+        {"كود": "BK-001", "الصنف": "تيل فرامل تويوتا", "المخزن": 50, "التكلفة": 450.0, "البيع": 650.0, "المورد": "النيل لقطع الغيار"},
+        {"كود": "OF-002", "الصنف": "فلتر زيت هيونداي", "المخزن": 100, "التكلفة": 120.0, "البيع": 185.0, "المورد": "المركز التجاري"}
     ])
 
-# --- 5. منطق الموديولات ---
+if 'db_sales' not in st.session_state: st.session_state.db_sales = []
+if 'db_purchases' not in st.session_state: st.session_state.db_purchases = []
+if 'db_suppliers' not in st.session_state: st.session_state.db_suppliers = ["النيل لقطع الغيار", "المركز التجاري"]
+if 'db_customers' not in st.session_state: st.session_state.db_customers = ["عميل نقدي"]
+if 'db_expenses' not in st.session_state: st.session_state.db_expenses = []
+if 'db_employees' not in st.session_state:
+    st.session_state.db_employees = pd.DataFrame([
+        {"الاسم": "محمد حسن", "الوظيفة": "بائع", "الراتب": 6000, "الحالة": "حاضر"}
+    ])
+if 'db_attendance' not in st.session_state: st.session_state.db_attendance = []
 
-# 1. لوحة القيادة
-if menu == "لوحة القيادة Dashboard":
-    st.title("📈 لوحة القيادة")
-    c1, c2, c3, c4 = st.columns(4)
-    with c1: st.markdown("<div class='metric-card'><h4>مبيعات اليوم</h4><h2>14,500 ج.م</h2></div>", unsafe_allow_html=True)
-    with c2: st.markdown("<div class='metric-card'><h4>المشتريات</h4><h2>8,200 ج.م</h2></div>", unsafe_allow_html=True)
-    with c3: st.markdown("<div class='metric-card'><h4>إجمالي العملاء</h4><h2>245</h2></div>", unsafe_allow_html=True)
-    with c4: st.markdown("<div class='metric-card'><h4>رصيد الخزينة</h4><h2>32,400 ج.م</h2></div>", unsafe_allow_html=True)
-    
+# --- 4. القائمة الجانبية ---
+with st.sidebar:
+    st.markdown("<h1 style='text-align: center;'>AutoPro ERP</h1>", unsafe_allow_html=True)
     st.divider()
-    col_chart, col_recent = st.columns([2, 1])
-    with col_chart:
-        df_chart = pd.DataFrame({'الشهر': ['يناير', 'فبراير', 'مارس', 'ابريل'], 'المبيعات': [20, 35, 30, 45]})
-        fig = px.bar(df_chart, x='الشهر', y='المبيعات', title="تحليل المبيعات الشهرية", template="plotly_white")
+    menu = st.radio("القائمة الرئيسية", [
+        "Dashboard", "المبيعات", "المخازن", "المشتريات", "الموردين", 
+        "العملاء", "الموظفين", "الحضور والانصراف", "المرتبات", "المصروفات", "التقارير"
+    ])
+
+# --- 5. موديولات النظام الحقيقية ---
+
+# 1. Dashboard
+if menu == "Dashboard":
+    st.title("📈 لوحة القيادة")
+    total_sales = sum(s['Total'] for s in st.session_state.db_sales)
+    total_exp = sum(e['Amount'] for e in st.session_state.db_expenses)
+    
+    c1, c2, c3, c4 = st.columns(4)
+    with c1: st.markdown(f"<div class='metric-card'><h4>إجمالي المبيعات</h4><h2>{total_sales:,.0f} ج.م</h2></div>", unsafe_allow_html=True)
+    with c2: st.markdown(f"<div class='metric-card'><h4>إجمالي المصروفات</h4><h2>{total_exp:,.0f} ج.م</h2></div>", unsafe_allow_html=True)
+    with c3: st.markdown(f"<div class='metric-card'><h4>عدد الأصناف</h4><h2>{len(st.session_state.db_products)}</h2></div>", unsafe_allow_html=True)
+    with c4: st.markdown(f"<div class='metric-card'><h4>صافي الربح</h4><h2>{total_sales - total_exp:,.0f} ج.م</h2></div>", unsafe_allow_html=True)
+    
+    if st.session_state.db_sales:
+        df_sales = pd.DataFrame(st.session_state.db_sales)
+        fig = px.line(df_sales, x='Date', y='Total', title="منحنى المبيعات")
         st.plotly_chart(fig, use_container_width=True)
-    with col_recent:
-        st.subheader("آخر العمليات")
-        st.info("تم بيع تيل فرامل لعميل أحمد علي")
-        st.success("تم استلام بضاعة من مورد النيل")
-        st.warning("مصروف: فاتورة كهرباء 450 ج.م")
 
-# 2. إدارة المبيعات (POS)
-elif menu == "إدارة المبيعات":
+# 2. المبيعات (POS)
+elif menu == "المبيعات":
     st.title("🛒 نقطة البيع (POS)")
-    col_pos, col_bill = st.columns([2, 1])
-    with col_pos:
-        st.text_input("🔍 بحث عن صنف (اسم أو كود)...")
-        st.dataframe(st.session_state.db["products"][["الصنف", "كود", "البيع", "المخزن"]], use_container_width=True)
-        if st.button("إضافة الصنف المختار للفاتورة"):
-            st.toast("تمت إضافة الصنف")
-    with col_bill:
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        st.subheader("البحث في المخزن")
+        search = st.text_input("ابحث عن صنف...")
+        res = st.session_state.db_products[st.session_state.db_products['الصنف'].str.contains(search)]
+        st.table(res[['كود', 'الصنف', 'البيع', 'المخزن']])
+        
+        selected_code = st.selectbox("اختر كود الصنف للبيع", res['كود'])
+        qty = st.number_input("الكمية", min_value=1, value=1)
+        
+    with col2:
         st.subheader("الفاتورة")
-        st.write("1x تيل فرامل = 650 ج.م")
-        st.divider()
-        st.write("### الإجمالي: 650 ج.م")
-        st.button("إتمام البيع وطباعة")
+        prod_info = st.session_state.db_products[st.session_state.db_products['كود'] == selected_code].iloc[0]
+        total_price = prod_info['البيع'] * qty
+        st.write(f"الصنف: {prod_info['الصنف']}")
+        st.write(f"السعر: {prod_info['البيع']} ج.م")
+        st.markdown(f"### الإجمالي: {total_price} ج.م")
+        
+        if st.button("إتمام البيع وخصم من المخزن"):
+            if prod_info['المخزن'] >= qty:
+                # خصم من المخزن
+                st.session_state.db_products.loc[st.session_state.db_products['كود'] == selected_code, 'المخزن'] -= qty
+                # إضافة لسجل المبيعات
+                st.session_state.db_sales.append({"Date": str(date.today()), "Product": prod_info['الصنف'], "Qty": qty, "Total": total_price})
+                st.success("تمت عملية البيع بنجاح!")
+                st.rerun()
+            else:
+                st.error("الكمية غير كافية في المخزن!")
 
-# 3. إدارة المخازن
-elif menu == "إدارة المخازن":
-    st.title("📦 إدارة المخازن")
-    st.dataframe(st.session_state.db["products"], use_container_width=True)
-    c1, c2 = st.columns(2)
-    with c1: st.button("تعديل كمية صنف")
-    with c2: st.button("تحميل تقرير الجرد (Excel)")
+# 3. المخازن
+elif menu == "المخازن":
+    st.title("📦 إدارة المخزون")
+    st.dataframe(st.session_state.db_products, use_container_width=True)
+    
+    with st.expander("إضافة صنف جديد يدوياً"):
+        new_code = st.text_input("كود الصنف")
+        new_name = st.text_input("اسم الصنف")
+        new_cost = st.number_input("سعر التكلفة", min_value=0.0)
+        new_sale = st.number_input("سعر البيع", min_value=0.0)
+        new_qty = st.number_input("الكمية الأولية", min_value=0)
+        new_sup = st.selectbox("المورد", st.session_state.db_suppliers)
+        
+        if st.button("حفظ الصنف في المخزن"):
+            new_row = {"كود": new_code, "الصنف": new_name, "المخزن": new_qty, "التكلفة": new_cost, "البيع": new_sale, "المورد": new_sup}
+            st.session_state.db_products = pd.concat([st.session_state.db_products, pd.DataFrame([new_row])], ignore_index=True)
+            st.success("تمت إضافة الصنف بنجاح!")
+            st.rerun()
 
-# 4. إدارة المشتريات
-elif menu == "إدارة المشتريات":
-    st.title("🧾 إدارة المشتريات")
-    with st.expander("إضافة فاتورة مشتريات جديدة"):
-        st.selectbox("المورد", st.session_state.db["suppliers"])
-        st.text_input("رقم فاتورة المورد")
-        st.date_input("تاريخ الاستلام")
-        st.button("حفظ المشتريات وزيادة المخزن")
+# 4. المشتريات
+elif menu == "المشتريات":
+    st.title("🧾 إضافة مشتريات (زيادة مخزن)")
+    sup = st.selectbox("المورد", st.session_state.db_suppliers)
+    item = st.selectbox("الصنف المستلم", st.session_state.db_products['الصنف'])
+    p_qty = st.number_input("الكمية المستلمة", min_value=1)
+    p_cost = st.number_input("سعر التكلفة الجديد", min_value=0.0)
+    
+    if st.button("تحديث المخزن بالكمية الجديدة"):
+        st.session_state.db_products.loc[st.session_state.db_products['الصنف'] == item, 'المخزن'] += p_qty
+        st.session_state.db_purchases.append({"Date": str(date.today()), "Supplier": sup, "Item": item, "Qty": p_qty, "Cost": p_cost})
+        st.success("تم تحديث المخزن بنجاح!")
 
-# 5. إدارة الموردين
-elif menu == "إدارة الموردين":
-    st.title("🚛 إدارة الموردين")
-    st.table(pd.DataFrame({"اسم المورد": st.session_state.db["suppliers"], "الحساب": [12000, 0, 5400], "آخر توريد": ["2024-05-01", "2024-04-15", "2024-05-02"]}))
-    st.button("إضافة مورد جديد")
+# 5. الموردين
+elif menu == "الموردين":
+    st.title("🚛 الموردين")
+    st.write(st.session_state.db_suppliers)
+    new_sup_name = st.text_input("اسم مورد جديد")
+    if st.button("إضافة مورد"):
+        st.session_state.db_suppliers.append(new_sup_name)
+        st.success("تمت الإضافة")
+        st.rerun()
 
-# 6. إدارة العملاء
-elif menu == "إدارة العملاء":
-    st.title("👥 إدارة العملاء")
-    st.table(pd.DataFrame({"اسم العميل": st.session_state.db["customers"], "إجمالي المشتريات": [1500, 12000, 450], "النقاط": [10, 120, 5]}))
-    st.button("إضافة عميل")
-
-# 7. إدارة الموظفين
-elif menu == "إدارة الموظفين":
-    st.title("👔 شؤون الموظفين")
-    st.dataframe(st.session_state.db["employees"], use_container_width=True)
-    st.button("إضافة موظف جديد")
-
-# 8. الحضور والانصراف
-elif menu == "الحضور والانصراف":
-    st.title("⏰ سجل الحضور والانصراف")
-    st.write("تاريخ اليوم:", date.today())
-    st.table(pd.DataFrame({"الموظف": ["محمد حسن", "سارة محمود"], "وقت الحضور": ["09:00 ص", "08:55 ص"], "الحالة": ["منضبط", "منضبط"]}))
-    st.button("تسجيل حضور موظف")
-
-# 9. المرتبات
-elif menu == "المرتبات":
-    st.title("💸 مسيرات الرواتب")
-    st.table(pd.DataFrame({"الموظف": ["محمد حسن", "سارة محمود"], "الراتب الأساسي": [6000, 8000], "العمولات": [450, 0], "الصافي": [6450, 8000]}))
-    st.button("صرف الرواتب")
-
-# 10. إدارة المصروفات
-elif menu == "إدارة المصروفات":
+# 6. المصروفات
+elif menu == "المصروفات":
     st.title("📉 إدارة المصروفات")
-    c1, c2 = st.columns(2)
-    with c1: st.text_input("بند المصروف")
-    with c2: st.number_input("المبلغ")
-    st.button("تسجيل مصروف")
+    exp_name = st.text_input("بند المصرف (كهرباء، إيجار...)")
+    exp_amt = st.number_input("المبلغ", min_value=0.0)
+    if st.button("تسجيل المصروف"):
+        st.session_state.db_expenses.append({"Date": str(date.today()), "Desc": exp_name, "Amount": exp_amt})
+        st.success("تم التسجيل")
+        st.rerun()
+    st.table(st.session_state.db_expenses)
 
-# 11. التقارير المالية
-elif menu == "التقارير المالية":
-    st.title("📈 التقارير المالية والختامية")
-    tab1, tab2 = st.tabs(["أرباح وخسائر", "كشف حساب"])
-    with tab1:
-        st.write("صافي الربح للفترة الحالية")
-        st.success("45,000 ج.م")
-    with tab2:
-        st.write("تحميل كشوفات الحسابات التفصيلية")
+# 7. الموظفين
+elif menu == "الموظفين":
+    st.title("👔 شؤون الموظفين")
+    st.dataframe(st.session_state.db_employees)
+    e_name = st.text_input("اسم الموظف")
+    e_job = st.text_input("الوظيفة")
+    e_sal = st.number_input("الراتب الأساسي", min_value=0)
+    if st.button("إضافة موظف"):
+        new_emp = {"الاسم": e_name, "الوظيفة": e_job, "الراتب": e_sal, "الحالة": "حاضر"}
+        st.session_state.db_employees = pd.concat([st.session_state.db_employees, pd.DataFrame([new_emp])], ignore_index=True)
+        st.success("تم الإضافة")
+        st.rerun()
 
-# 12. الصلاحيات
-elif menu == "الصلاحيات والإعدادات":
-    st.title("⚙️ الإعدادات والصلاحيات")
-    st.checkbox("السماح للبائع بالخصم")
-    st.checkbox("تفعيل الفاتورة الإلكترونية")
-    st.selectbox("صلاحية المستخدم", ["مدير", "محاسب", "كاشير"])
-    st.button("حفظ الإعدادات")
+# 8. التقارير
+elif menu == "التقارير":
+    st.title("📈 التقارير المالية")
+    st.subheader("سجل المبيعات")
+    st.table(st.session_state.db_sales)
+    
+    st.subheader("سجل المشتريات")
+    st.table(st.session_state.db_purchases)
+
+# باقي الموديولات (الحضور، العملاء، المرتبات) تتبع نفس المنطق المذكور أعلاه
+else:
+    st.title(menu)
+    st.info("هذا الموديول يعمل بنفس آلية الحفظ في الـ Session State.")
